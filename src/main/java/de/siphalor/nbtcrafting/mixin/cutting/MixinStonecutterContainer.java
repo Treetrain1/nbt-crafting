@@ -43,8 +43,8 @@ public class MixinStonecutterContainer {
 	@Inject(method = "updateInput", at = @At("TAIL"))
 	private void onInputUpdated(Inventory inventory, ItemStack input, CallbackInfo callbackInfo) {
 		availableRecipes.sort((a, b) -> {
-			ItemStack s1 = a.getOutput(this.world.getRegistryManager());
-			ItemStack s2 = b.getOutput(this.world.getRegistryManager());
+			ItemStack s1 = a.getResult(this.world.getRegistryManager());
+			ItemStack s2 = b.getResult(this.world.getRegistryManager());
 			int comp = s1.getTranslationKey().compareTo(s2.getTranslationKey());
 			if (comp != 0)
 				return comp;

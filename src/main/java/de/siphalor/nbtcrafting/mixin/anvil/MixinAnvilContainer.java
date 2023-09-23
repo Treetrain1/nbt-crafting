@@ -68,7 +68,7 @@ public abstract class MixinAnvilContainer extends ForgingScreenHandler {
 
 	@Inject(method = "updateResult", at = @At("HEAD"), cancellable = true)
 	public void updateResult(CallbackInfo callbackInfo) {
-		recipe = player.getWorld().getRecipeManager().getFirstMatch(NbtCrafting.ANVIL_RECIPE_TYPE, input, player.getWorld()).orElse(null);
+		recipe = player.getWorld().getRecipeManager().getFirstMatch(NbtCrafting.ANVIL_RECIPE_TYPE, input, player.getWorld()).orElse(null).value();
 		if (recipe != null) {
 			ItemStack resultStack = recipe.craft(input, player.getWorld().getRegistryManager());
 			repairItemUsage = 1;

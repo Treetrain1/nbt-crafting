@@ -55,13 +55,9 @@ public class RecipeMatcherDummyRecipe implements Recipe<Inventory> {
 		throw new UnsupportedOperationException();
 	}
 
-	@Override
-	public ItemStack getOutput(DynamicRegistryManager dynamicRegistryManager) {
-		throw new UnsupportedOperationException();
-	}
 
 	@Override
-	public Identifier getId() {
+	public ItemStack getResult(DynamicRegistryManager dynamicRegistryManager) {
 		throw new UnsupportedOperationException();
 	}
 

@@ -19,8 +19,14 @@ package de.siphalor.nbtcrafting.mixin.cooking;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.mojang.serialization.Codec;
+import com.mojang.serialization.JsonOps;
+
+import de.siphalor.nbtcrafting.NbtCrafting;
+
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NbtCompound;
+import net.minecraft.network.PacketByteBuf;
 import net.minecraft.recipe.AbstractCookingRecipe;
 import net.minecraft.recipe.CookingRecipeSerializer;
 import net.minecraft.recipe.Ingredient;
@@ -29,6 +35,7 @@ import net.minecraft.recipe.book.CookingRecipeCategory;
 import net.minecraft.registry.Registries;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.JsonHelper;
+import net.minecraft.util.dynamic.Codecs;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
@@ -44,20 +51,26 @@ public abstract class MixinCookingRecipeSerializer {
 	@Unique
 	private NbtCompound resultTag = null;
 
-	@Redirect(method = "read(Lnet/minecraft/util/Identifier;Lcom/google/gson/JsonObject;)Lnet/minecraft/recipe/AbstractCookingRecipe;", at = @At(value = "INVOKE", target = "net/minecraft/util/JsonHelper.getString(Lcom/google/gson/JsonObject;Ljava/lang/String;)Ljava/lang/String;", ordinal = 0))
-	public String getItemIdentifier(JsonObject jsonObject, String resultPropertyName) {
+	@Redirect(method = "read(Lnet/minecraft/network/PacketByteBuf;)Lnet/minecraft/recipe/AbstractCookingRecipe;", at = @At(value = "INVOKE", target = "Lnet/minecraft/network/PacketByteBuf;readString()Ljava/lang/String;", ordinal = 0))
+	public String getItemIdentifier(PacketByteBuf instance) {
 		resultTag = null;
-		if (!jsonObject.has(resultPropertyName) || !jsonObject.get(resultPropertyName).isJsonObject()) {
-			return JsonHelper.getString(jsonObject, resultPropertyName);
+		String resultPropertyName = "group";
+		String original = instance.readString();
+		try {
+			var codec = Codecs.createStrictOptionalFieldCodec(Codec.STRING, resultPropertyName, "").codec();
+			var jsonObject = (JsonObject) codec.encodeStart(JsonOps.INSTANCE, original).get().left().get();
+			ItemStack result = NbtCrafting.outputFromJson(jsonObject.getAsJsonObject(resultPropertyName));
+			resultTag = result.getNbt();
+			return Registries.ITEM.getId(result.getItem()).toString();
+		} catch (Exception e) {
+			e.printStackTrace();
+			return original;
 		}
-		ItemStack output = ShapedRecipe.outputFromJson(jsonObject.getAsJsonObject(resultPropertyName));
-		resultTag = output.getNbt();
-		return Registries.ITEM.getId(output.getItem()).toString();
 	}
 
-	@Inject(method = "read(Lnet/minecraft/util/Identifier;Lcom/google/gson/JsonObject;)Lnet/minecraft/recipe/AbstractCookingRecipe;", at = @At(value = "TAIL"), locals = LocalCapture.CAPTURE_FAILHARD)
-	public void onRecipeReady(Identifier identifier, JsonObject jsonObject, CallbackInfoReturnable<AbstractCookingRecipe> callbackInfoReturnable, String group, CookingRecipeCategory category, JsonElement ingredientJson, Ingredient ingredient, String itemId, Identifier itemIdentifier, ItemStack stack, float experience, int cookingTime) {
+	@Inject(method = "read(Lnet/minecraft/network/PacketByteBuf;)Lnet/minecraft/recipe/AbstractCookingRecipe;", at = @At(value = "TAIL"), locals = LocalCapture.CAPTURE_FAILHARD)
+	public void onRecipeReady(PacketByteBuf packetByteBuf, CallbackInfoReturnable<AbstractCookingRecipe> cir, String string, CookingRecipeCategory cookingRecipeCategory, Ingredient ingredient, ItemStack itemStack, float f, int i) {
 		//noinspection ConstantConditions
-		((IItemStack) (Object) stack).nbtCrafting$setRawTag(resultTag);
+		((IItemStack) (Object) itemStack).nbtCrafting$setRawTag(resultTag);
 	}
 }

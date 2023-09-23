@@ -22,6 +22,7 @@ import java.util.List;
 
 import net.minecraft.network.packet.s2c.play.SynchronizeRecipesS2CPacket;
 import net.minecraft.recipe.Recipe;
+import net.minecraft.recipe.RecipeEntry;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -35,10 +36,10 @@ import de.siphalor.nbtcrafting.api.ServerRecipe;
 public abstract class MixinSynchronizeRecipesS2CPacket {
 	@Final
 	@Shadow
-	private List<Recipe<?>> recipes;
+	private List<RecipeEntry<?>> recipes;
 
 	@Inject(method = "<init>(Ljava/util/Collection;)V", at = @At("RETURN"))
-	public void onCreated(Collection<Recipe<?>> recipes, CallbackInfo ci) {
-		this.recipes.removeIf(recipe -> recipe instanceof ServerRecipe);
+	public void onCreated(Collection<RecipeEntry<?>> recipes, CallbackInfo ci) {
+		this.recipes.removeIf(entry -> entry.value() instanceof ServerRecipe);
 	}
 }

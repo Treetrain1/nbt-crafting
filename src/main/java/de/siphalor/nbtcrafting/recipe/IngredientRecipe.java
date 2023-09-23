@@ -18,9 +18,12 @@
 package de.siphalor.nbtcrafting.recipe;
 
 import java.util.Map;
+import java.util.Optional;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.gson.JsonObject;
+import com.mojang.serialization.Codec;
+import com.mojang.serialization.codecs.RecordCodecBuilder;
 import net.minecraft.inventory.Inventory;
 import net.minecraft.item.ItemStack;
 import net.minecraft.network.PacketByteBuf;
@@ -29,6 +32,7 @@ import net.minecraft.recipe.RecipeSerializer;
 import net.minecraft.recipe.RecipeType;
 import net.minecraft.recipe.ShapedRecipe;
 import net.minecraft.registry.DynamicRegistryManager;
+import net.minecraft.registry.Registries;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.JsonHelper;
 import net.minecraft.util.collection.DefaultedList;
@@ -42,7 +46,6 @@ import de.siphalor.nbtcrafting.dollar.Dollar;
 import de.siphalor.nbtcrafting.dollar.DollarParser;
 
 public class IngredientRecipe<I extends Inventory> implements NBTCRecipe<I>, ServerRecipe {
-	private final Identifier identifier;
 	protected final Ingredient base;
 	protected final Ingredient ingredient;
 	protected final ItemStack result;
@@ -50,10 +53,9 @@ public class IngredientRecipe<I extends Inventory> implements NBTCRecipe<I>, Ser
 	protected final RecipeType<? extends IngredientRecipe<I>> recipeType;
 	protected final RecipeSerializer<? extends IngredientRecipe<I>> serializer;
 
-	public IngredientRecipe(Identifier identifier, Ingredient base, Ingredient ingredient, ItemStack result, RecipeType<? extends IngredientRecipe<I>> recipeType, RecipeSerializer<? extends IngredientRecipe<I>> serializer) {
-		this.identifier = identifier;
+	public IngredientRecipe(Ingredient base, Optional<Ingredient> ingredient, ItemStack result, RecipeType<? extends IngredientRecipe<I>> recipeType, RecipeSerializer<? extends IngredientRecipe<I>> serializer) {
 		this.base = base;
-		this.ingredient = ingredient;
+		this.ingredient = ingredient.orElse(Ingredient.EMPTY);
 		this.result = result;
 		this.resultDollars = DollarParser.extractDollars(result.getNbt(), false);
 		this.recipeType = recipeType;
@@ -79,13 +81,8 @@ public class IngredientRecipe<I extends Inventory> implements NBTCRecipe<I>, Ser
 	}
 
 	@Override
-	public ItemStack getOutput(DynamicRegistryManager dynamicRegistryManager) {
+	public ItemStack getResult(DynamicRegistryManager dynamicRegistryManager) {
 		return result;
-	}
-
-	@Override
-	public Identifier getId() {
-		return identifier;
 	}
 
 	public Ingredient getBase() {
@@ -128,37 +125,33 @@ public class IngredientRecipe<I extends Inventory> implements NBTCRecipe<I>, Ser
 	}
 
 	public interface Factory<R extends IngredientRecipe<?>> {
-		R create(Identifier id, Ingredient base, Ingredient ingredient, ItemStack result, Serializer<R> serializer);
+		R create(Ingredient base, Optional<Ingredient> ingredient, ItemStack result, Serializer<R> serializer);
 	}
 
 	public static class Serializer<R extends IngredientRecipe<?>> implements RecipeSerializer<R> {
 		private final Factory<R> factory;
+		private final Codec<R> codec;
 
 		public Serializer(Factory<R> factory) {
 			this.factory = factory;
+			this.codec = RecordCodecBuilder.create(instance -> instance.group(
+					Ingredient.DISALLOW_EMPTY_CODEC.fieldOf("base").forGetter(recipe -> recipe.base),
+					Ingredient.DISALLOW_EMPTY_CODEC.optionalFieldOf("ingredient").forGetter(recipe -> Optional.of(recipe.ingredient)),
+					Registries.ITEM.getCodec().xmap(ItemStack::new, ItemStack::getItem).fieldOf("result").forGetter(recipe -> recipe.result)
+			).apply(instance, (base, ingredient, result) -> factory.create(base, ingredient, result, this)));
 		}
 
 		@Override
-		public R read(Identifier id, JsonObject json) {
-			Ingredient base = Ingredient.fromJson(json.get("base"));
-			Ingredient ingredient;
-			if (json.has("ingredient")) {
-				ingredient = Ingredient.fromJson(json.get("ingredient"));
-			} else {
-				ingredient = Ingredient.EMPTY;
-			}
-			ItemStack result = ShapedRecipe.outputFromJson(JsonHelper.getObject(json, "result"));
-			R recipe = factory.create(id, base, ingredient, result, this);
-			recipe.readCustomData(json);
-			return recipe;
+		public Codec<R> codec() {
+			return this.codec;
 		}
 
 		@Override
-		public R read(Identifier id, PacketByteBuf buf) {
+		public R read(PacketByteBuf buf) {
 			Ingredient base = Ingredient.fromPacket(buf);
-			Ingredient ingredient = Ingredient.fromPacket(buf);
+			Optional<Ingredient> ingredient = Optional.of(Optional.of(Ingredient.fromPacket(buf)).orElse(Ingredient.EMPTY));
 			ItemStack result = buf.readItemStack();
-			R recipe = factory.create(id, base, ingredient, result, this);
+			R recipe = factory.create(base, ingredient, result, this);
 			recipe.readCustomData(buf);
 			return recipe;
 		}

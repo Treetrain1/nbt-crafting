@@ -24,6 +24,7 @@ import net.minecraft.network.ClientConnection;
 import net.minecraft.network.PacketByteBuf;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.PlayerManager;
+import net.minecraft.server.network.ConnectedClientData;
 import net.minecraft.server.network.ServerPlayerEntity;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
@@ -33,7 +34,6 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Mixin(PlayerManager.class)
 public class MixinPlayerManager {
@@ -52,7 +52,7 @@ public class MixinPlayerManager {
 					target = "Lnet/minecraft/network/packet/s2c/play/DifficultyS2CPacket;<init>(Lnet/minecraft/world/Difficulty;Z)V"
 			)
 	)
-	public void beforeRegistrySync(ClientConnection connection, ServerPlayerEntity player, int latency, CallbackInfo ci) {
+	public void beforeRegistrySync(ClientConnection connection, ServerPlayerEntity player, ConnectedClientData clientData, CallbackInfo ci) {
 		NbtCrafting.lastServerPlayerEntity.set(player);
 	}
 
@@ -62,7 +62,7 @@ public class MixinPlayerManager {
 					value = "RETURN"
 			)
 	)
-	public void afterRecipeSync(ClientConnection connection, ServerPlayerEntity player, int latency, CallbackInfo ci) {
+	public void afterRecipeSync(ClientConnection connection, ServerPlayerEntity player, ConnectedClientData clientData, CallbackInfo ci) {
 		if (NbtCrafting.hasClientMod(player)) {
 			NbtCrafting.logInfo("Syncing advanced recipe data to player " + player.getEntityName());
 			List<PacketByteBuf> packets = NbtCrafting.createAdvancedRecipeSyncPackets(server.getRecipeManager());
@@ -79,7 +79,7 @@ public class MixinPlayerManager {
 			at = @At("RETURN")
 	)
 	public void onDataPacksReloaded(CallbackInfo ci) {
-		List<ServerPlayerEntity> nbtcPlayers = players.stream().filter(NbtCrafting::hasClientMod).collect(Collectors.toList());
+		List<ServerPlayerEntity> nbtcPlayers = players.stream().filter(NbtCrafting::hasClientMod).toList();
 		if (!nbtcPlayers.isEmpty()) {
 			NbtCrafting.logInfo("Syncing advanced recipe data to " + nbtcPlayers.size() + " players");
 			List<PacketByteBuf> packets = NbtCrafting.createAdvancedRecipeSyncPackets(server.getRecipeManager());

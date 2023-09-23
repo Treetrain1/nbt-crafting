@@ -20,7 +20,6 @@
 		"cauldron.MixinCauldronBlock",
 		"cooking.MixinAbstractFurnaceBlockEntity",
 		"cooking.MixinCookingRecipe",
-		"cooking.MixinCookingRecipeSerializer",
 		"crafting.MixingCraftingInventory",
 		"crafting.MixinShapedRecipe",
 		"crafting.MixinShapelessRecipe",

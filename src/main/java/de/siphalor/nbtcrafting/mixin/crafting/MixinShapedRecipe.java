@@ -52,65 +52,15 @@ import de.siphalor.nbtcrafting.util.duck.IItemStack;
 public abstract class MixinShapedRecipe {
 	@Shadow
 	@Final
-	ItemStack output;
+	ItemStack result;
 
 	@Shadow
 	@Final
-	DefaultedList<Ingredient> input;
-
-	@Inject(method = "outputFromJson", at = @At("HEAD"))
-	private static void handlePotions(JsonObject json, CallbackInfoReturnable<ItemStack> ci) {
-		if (json.has("potion")) {
-			Identifier identifier = new Identifier(JsonHelper.getString(json, "potion"));
-			if (Registries.POTION.getOrEmpty(identifier).isEmpty())
-				throw new JsonParseException("The given resulting potion does not exist!");
-			JsonObject dataObject;
-			if (!json.has("data")) {
-				dataObject = new JsonObject();
-				json.add("data", dataObject);
-			} else
-				dataObject = JsonHelper.getObject(json, "data");
-			dataObject.addProperty("Potion", identifier.toString());
-			json.addProperty("item", "minecraft:potion");
-		}
-	}
-
-	@Inject(
-			method = "outputFromJson",
-			at = @At(value = "INVOKE", target = "com/google/gson/JsonObject.has(Ljava/lang/String;)Z", remap = false)
-	)
-	private static void deserializeItemStack(JsonObject json, CallbackInfoReturnable<ItemStack> ci) {
-		NbtCrafting.clearLastReadNbt();
-		if (json.has("data")) {
-			if (JsonHelper.hasString(json, "data")) {
-				try {
-					NbtCrafting.setLastReadNbt(new StringNbtReader(new StringReader(json.get("data").getAsString())).parseCompound());
-				} catch (CommandSyntaxException e) {
-					e.printStackTrace();
-				}
-			} else {
-				NbtCrafting.setLastReadNbt((NbtCompound) NbtUtil.asTag(JsonPreprocessor.process(JsonHelper.getObject(json, "data"))));
-			}
-			json.remove("data");
-		}
-	}
-
-	@Inject(
-			method = "outputFromJson", at = @At("RETURN"), cancellable = true, locals = LocalCapture.CAPTURE_FAILHARD)
-	private static void constructDeserializedItemStack(JsonObject json, CallbackInfoReturnable<ItemStack> ci, Item item, int amount) {
-		ItemStack stack = new ItemStack(item, amount);
-		if (NbtCrafting.hasLastReadNbt()) {
-			NbtCompound lastReadNbt = NbtCrafting.useLastReadNbt();
-
-			//noinspection ConstantConditions
-			((IItemStack) (Object) stack).nbtCrafting$setRawTag(lastReadNbt);
-		}
-		ci.setReturnValue(stack);
-	}
+	DefaultedList<Ingredient> ingredients;
 
 	@Inject(method = "craft(Lnet/minecraft/inventory/RecipeInputInventory;Lnet/minecraft/registry/DynamicRegistryManager;)Lnet/minecraft/item/ItemStack;", at = @At("HEAD"), cancellable = true)
 	public void craft(RecipeInputInventory craftingInventory, DynamicRegistryManager registryManager, CallbackInfoReturnable<ItemStack> callbackInfoReturnable) {
-		ItemStack result = RecipeUtil.getDollarAppliedResult(output, input, craftingInventory);
+		ItemStack result = RecipeUtil.getDollarAppliedResult(this.result, ingredients, craftingInventory);
 		if (result != null) callbackInfoReturnable.setReturnValue(result);
 	}
 }

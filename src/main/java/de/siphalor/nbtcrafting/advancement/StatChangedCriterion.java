@@ -37,12 +37,7 @@ import de.siphalor.nbtcrafting.NbtCrafting;
 import java.util.Optional;
 
 public class StatChangedCriterion extends AbstractCriterion<StatChangedCriterion.Conditions<?>> {
-	private static final Identifier ID = new Identifier(NbtCrafting.MOD_ID, "stat_changed");
-
-	@Override
-	public Identifier getId() {
-		return ID;
-	}
+	public static final Identifier ID = new Identifier(NbtCrafting.MOD_ID, "stat_changed");
 
 	public <T> void trigger(ServerPlayerEntity player, Stat<T> stat, int value) {
 		StatType<T> statType = stat.getType();
@@ -68,7 +63,7 @@ public class StatChangedCriterion extends AbstractCriterion<StatChangedCriterion
 		private final NumberRange.IntRange intRange;
 
 		public Conditions(StatType<T> statType, T object, NumberRange.IntRange intRange, Optional<LootContextPredicate> playerPredicate) {
-			super(ID, playerPredicate);
+			super(playerPredicate);
 			this.statType = statType;
 			this.object = object;
 			this.intRange = intRange;

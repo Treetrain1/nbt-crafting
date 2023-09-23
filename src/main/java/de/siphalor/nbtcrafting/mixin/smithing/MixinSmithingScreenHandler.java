@@ -23,6 +23,7 @@ import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.entity.player.PlayerInventory;
 import net.minecraft.inventory.Inventory;
 import net.minecraft.item.ItemStack;
+import net.minecraft.recipe.RecipeEntry;
 import net.minecraft.screen.ForgingScreenHandler;
 import net.minecraft.screen.ScreenHandlerContext;
 import net.minecraft.screen.ScreenHandlerType;
@@ -58,10 +59,10 @@ public abstract class MixinSmithingScreenHandler extends ForgingScreenHandler {
 			cancellable = true
 	)
 	public void onUpdateResult(CallbackInfo callbackInfo) {
-		Optional<IngredientRecipe<Inventory>> match = player.getWorld().getRecipeManager().getFirstMatch(NbtCrafting.SMITHING_RECIPE_TYPE, input, player.getWorld());
+		Optional<RecipeEntry<IngredientRecipe<Inventory>>> match = player.getWorld().getRecipeManager().getFirstMatch(NbtCrafting.SMITHING_RECIPE_TYPE, input, player.getWorld());
 
 		if (match.isPresent()) {
-			output.setStack(0, match.get().craft(input, this.world.getRegistryManager()));
+			output.setStack(0, match.get().value().craft(input, this.world.getRegistryManager()));
 			callbackInfo.cancel();
 		}
 	}
@@ -82,8 +83,8 @@ public abstract class MixinSmithingScreenHandler extends ForgingScreenHandler {
 			at = @At("HEAD")
 	)
 	protected void onTakeOutput(PlayerEntity player, ItemStack stack, CallbackInfo ci) {
-		Optional<IngredientRecipe<Inventory>> match = player.getWorld().getRecipeManager().getFirstMatch(NbtCrafting.SMITHING_RECIPE_TYPE, input, player.getWorld());
-		remainders = match.map(inventoryIngredientRecipe -> inventoryIngredientRecipe.getRemainder(input)).orElse(null);
+		Optional<RecipeEntry<IngredientRecipe<Inventory>>> match = player.getWorld().getRecipeManager().getFirstMatch(NbtCrafting.SMITHING_RECIPE_TYPE, input, player.getWorld());
+		remainders = match.map(inventoryIngredientRecipe -> inventoryIngredientRecipe.value().getRemainder(input)).orElse(null);
 	}
 
 	@Inject(
@@ -92,9 +93,7 @@ public abstract class MixinSmithingScreenHandler extends ForgingScreenHandler {
 	)
 	protected void onOutputTaken(PlayerEntity player, ItemStack stack, CallbackInfo ci) {
 		if (remainders != null) {
-			context.run((world, blockPos) -> {
-				RecipeUtil.putRemainders(remainders, input, world, blockPos);
-			});
+			context.run((world, blockPos) -> RecipeUtil.putRemainders(remainders, input, world, blockPos));
 		}
 	}
 }

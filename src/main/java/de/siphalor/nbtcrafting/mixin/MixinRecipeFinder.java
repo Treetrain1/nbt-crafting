@@ -57,7 +57,7 @@ public abstract class MixinRecipeFinder {
 		NbtCrafting.lastRecipeFinder = (RecipeMatcher) (Object) this;
 	}
 
-	@Inject(method = "countCrafts(Lnet/minecraft/recipe/Recipe;ILit/unimi/dsi/fastutil/ints/IntList;)I", at = @At("HEAD"))
+	@Inject(method = "countCrafts(Lnet/minecraft/recipe/RecipeEntry;ILit/unimi/dsi/fastutil/ints/IntList;)I", at = @At("HEAD"))
 	public void onCountCrafts(@SuppressWarnings("rawtypes") Recipe recipe, int int_1, IntList ints, CallbackInfoReturnable<Integer> ci) {
 		NbtCrafting.lastRecipeFinder = (RecipeMatcher) (Object) this;
 	}

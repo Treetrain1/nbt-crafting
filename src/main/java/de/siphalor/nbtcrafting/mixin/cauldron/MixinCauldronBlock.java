@@ -24,6 +24,7 @@ import net.minecraft.block.BlockState;
 import net.minecraft.entity.ItemEntity;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.ItemStack;
+import net.minecraft.recipe.RecipeEntry;
 import net.minecraft.util.ActionResult;
 import net.minecraft.util.Hand;
 import net.minecraft.util.collection.DefaultedList;
@@ -45,11 +46,11 @@ public class MixinCauldronBlock {
 	public void onActivate(BlockState blockState, World world, BlockPos blockPos, PlayerEntity playerEntity, Hand hand, BlockHitResult blockHitResult, CallbackInfoReturnable<ActionResult> callbackInfoReturnable) {
 		if (!world.isClient()) {
 			TemporaryCauldronInventory inventory = new TemporaryCauldronInventory(playerEntity, hand, world, blockPos);
-			Optional<CauldronRecipe> cauldronRecipe = world.getRecipeManager().getFirstMatch(NbtCrafting.CAULDRON_RECIPE_TYPE, inventory, world);
+			Optional<RecipeEntry<CauldronRecipe>> cauldronRecipe = world.getRecipeManager().getFirstMatch(NbtCrafting.CAULDRON_RECIPE_TYPE, inventory, world);
 			if (cauldronRecipe.isPresent()) {
-				DefaultedList<ItemStack> remainingStacks = cauldronRecipe.get().getRemainder(inventory);
+				DefaultedList<ItemStack> remainingStacks = cauldronRecipe.get().value().getRemainder(inventory);
 
-				ItemStack itemStack = cauldronRecipe.get().craft(inventory, world.getRegistryManager());
+				ItemStack itemStack = cauldronRecipe.get().value().craft(inventory, world.getRegistryManager());
 				itemStack.onCraft(world, playerEntity, itemStack.getCount());
 
 				if (!playerEntity.getInventory().insertStack(remainingStacks.get(0))) {

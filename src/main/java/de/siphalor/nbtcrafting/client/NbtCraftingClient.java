@@ -45,9 +45,8 @@ import de.siphalor.nbtcrafting.mixin.client.AnvilScreenAccessor;
 public class NbtCraftingClient implements ClientModInitializer {
 	@Override
 	public void onInitializeClient() {
-		ClientLoginNetworking.registerGlobalReceiver(NbtCrafting.PRESENCE_CHANNEL, (client, handler, buf, listenerAdder) -> {
-			return CompletableFuture.completedFuture(new PacketByteBuf(Unpooled.buffer()));
-		});
+		ClientLoginNetworking.registerGlobalReceiver(NbtCrafting.PRESENCE_CHANNEL, (client, handler, buf, listenerAdder) ->
+				CompletableFuture.completedFuture(new PacketByteBuf(Unpooled.buffer())));
 
 		ClientPlayNetworking.registerGlobalReceiver(NbtCrafting.UPDATE_ANVIL_TEXT_S2C_PACKET_ID, (client, handler, buf, responseSender) -> {
 			if (MinecraftClient.getInstance().currentScreen instanceof AnvilScreen) {
@@ -88,7 +87,7 @@ public class NbtCraftingClient implements ClientModInitializer {
 
 		Identifier id = buf.readIdentifier();
 
-		Recipe<?> recipe = serializer.read(id, buf);
+		Recipe<?> recipe = serializer.read(buf);
 		Map<Identifier, Recipe<?>> recipeType = recipes.computeIfAbsent(recipe.getType(), rt -> new HashMap<>());
 		recipeType.put(id, recipe);
 	}

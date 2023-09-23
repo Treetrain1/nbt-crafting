@@ -17,38 +17,52 @@
 
 package de.siphalor.nbtcrafting.recipe.cauldron;
 
-import com.google.gson.JsonObject;
+import com.mojang.serialization.Codec;
+
+import com.mojang.serialization.codecs.RecordCodecBuilder;
+
+import net.minecraft.item.ItemStack;
 import net.minecraft.network.PacketByteBuf;
 import net.minecraft.recipe.Ingredient;
 import net.minecraft.recipe.RecipeSerializer;
-import net.minecraft.recipe.ShapedRecipe;
+import net.minecraft.registry.Registries;
 import net.minecraft.util.Identifier;
-import net.minecraft.util.JsonHelper;
 
-public class CauldronRecipeSerializer implements RecipeSerializer<CauldronRecipe> {
-	@Override
-	public CauldronRecipe read(Identifier identifier, JsonObject jsonObject) {
-		JsonObject output = JsonHelper.getObject(jsonObject, "result");
-		int levels = 0;
-		Identifier fluid = null;
-		if (jsonObject.has("levels")) {
-			levels = jsonObject.get("levels").getAsInt();
-			if (jsonObject.has("fluid")) {
-				fluid = new Identifier(jsonObject.get("fluid").getAsString());
-			} else {
-				fluid = TemporaryCauldronInventory.WATER;
-			}
-		}
-		return new CauldronRecipe(identifier, Ingredient.fromJson(jsonObject.get("input")), ShapedRecipe.outputFromJson(output), fluid, levels);
+public class CauldronRecipeSerializer<T extends CauldronRecipe> implements RecipeSerializer<T> {
+	private final RecipeFactory<T> recipeFactory;
+	private final Codec<T> codec;
+
+	public CauldronRecipeSerializer(RecipeFactory<T> recipeFactory) {
+		this.recipeFactory = recipeFactory;
+		this.codec = RecordCodecBuilder.create(instance -> instance.group(
+				Ingredient.DISALLOW_EMPTY_CODEC.fieldOf("ingredient").forGetter(recipe -> recipe.ingredient),
+				Registries.ITEM.getCodec().xmap(ItemStack::new, ItemStack::getItem).fieldOf("result").forGetter(recipe -> recipe.result),
+				Identifier.CODEC.fieldOf("fluid").forGetter(recipe -> recipe.fluid),
+				Codec.INT.fieldOf("levels").forGetter(recipe -> recipe.levels)
+		).apply(instance, recipeFactory::create));
 	}
 
 	@Override
-	public CauldronRecipe read(Identifier identifier, PacketByteBuf packetByteBuf) {
-		return CauldronRecipe.from(packetByteBuf);
+	public Codec<T> codec() {
+		return this.codec;
+	}
+
+	@Override
+	public T read(PacketByteBuf packet) {
+		Ingredient ingredient = Ingredient.fromPacket(packet);
+		ItemStack result = packet.readItemStack();
+		Identifier fluid = packet.readIdentifier();
+		int levels = packet.readInt();
+		return this.recipeFactory.create(ingredient, result, fluid, levels);
 	}
 
 	@Override
 	public void write(PacketByteBuf packetByteBuf, CauldronRecipe cauldronRecipe) {
 		cauldronRecipe.write(packetByteBuf);
+	}
+
+	@FunctionalInterface
+	public interface RecipeFactory<T extends CauldronRecipe> {
+		T create(Ingredient ingredient, ItemStack result, Identifier fluid, int levels);
 	}
 }

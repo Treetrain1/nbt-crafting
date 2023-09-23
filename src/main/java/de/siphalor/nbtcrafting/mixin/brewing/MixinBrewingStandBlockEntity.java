@@ -25,6 +25,7 @@ import net.minecraft.block.entity.BrewingStandBlockEntity;
 import net.minecraft.block.entity.LockableContainerBlockEntity;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
+import net.minecraft.recipe.RecipeEntry;
 import net.minecraft.util.collection.DefaultedList;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
@@ -63,7 +64,7 @@ public abstract class MixinBrewingStandBlockEntity extends LockableContainerBloc
 
 	@Inject(method = "canCraft", at = @At("HEAD"), cancellable = true)
 	private static void canCraft(CallbackInfoReturnable<Boolean> callbackInfoReturnable) {
-		Optional<BrewingRecipe> recipe = lastWorld.getRecipeManager().getFirstMatch(NbtCrafting.BREWING_RECIPE_TYPE, lastBlockEntity, lastWorld);
+		Optional<RecipeEntry<BrewingRecipe>> recipe = lastWorld.getRecipeManager().getFirstMatch(NbtCrafting.BREWING_RECIPE_TYPE, lastBlockEntity, lastWorld);
 		if (recipe.isPresent()) {
 			callbackInfoReturnable.setReturnValue(true);
 		}
@@ -71,10 +72,10 @@ public abstract class MixinBrewingStandBlockEntity extends LockableContainerBloc
 
 	@Inject(method = "craft", at = @At("HEAD"), cancellable = true)
 	private static void craft(World world, BlockPos pos, DefaultedList<ItemStack> invList, CallbackInfo callbackInfo) {
-		Optional<BrewingRecipe> recipe = lastWorld.getRecipeManager().getFirstMatch(NbtCrafting.BREWING_RECIPE_TYPE, lastBlockEntity, lastWorld);
+		Optional<RecipeEntry<BrewingRecipe>> recipe = lastWorld.getRecipeManager().getFirstMatch(NbtCrafting.BREWING_RECIPE_TYPE, lastBlockEntity, lastWorld);
 		if (recipe.isPresent()) {
-			DefaultedList<ItemStack> remainingStacks = recipe.get().getRemainder(lastBlockEntity);
-			ItemStack[] results = recipe.get().craftAll(lastBlockEntity);
+			DefaultedList<ItemStack> remainingStacks = recipe.get().value().getRemainder(lastBlockEntity);
+			ItemStack[] results = recipe.get().value().craftAll(lastBlockEntity);
 
 			lastBlockEntity.getStack(3).decrement(1);
 			for (int i = 0; i < 3; i++) {

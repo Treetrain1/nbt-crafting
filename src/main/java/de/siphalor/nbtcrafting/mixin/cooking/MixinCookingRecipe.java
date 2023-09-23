@@ -35,15 +35,15 @@ import de.siphalor.nbtcrafting.api.RecipeUtil;
 public class MixinCookingRecipe {
 	@Shadow
 	@Final
-	protected ItemStack output;
+	protected ItemStack result;
 
 	@Shadow
 	@Final
-	protected Ingredient input;
+	protected Ingredient ingredient;
 
 	@Inject(method = "craft", at = @At("HEAD"), cancellable = true)
 	public void craft(Inventory inventory, DynamicRegistryManager registryManager, CallbackInfoReturnable<ItemStack> callbackInfoReturnable) {
-		ItemStack result = RecipeUtil.getDollarAppliedResult(output, input, inventory);
+		ItemStack result = RecipeUtil.getDollarAppliedResult(this.result, ingredient, inventory);
 		if (result != null) callbackInfoReturnable.setReturnValue(result);
 	}
 }

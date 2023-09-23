@@ -19,6 +19,7 @@ package de.siphalor.nbtcrafting.recipe;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 
 import net.minecraft.inventory.Inventory;
 import net.minecraft.item.ItemStack;
@@ -35,8 +36,8 @@ import de.siphalor.nbtcrafting.api.nbt.NbtUtil;
 public class BrewingRecipe extends IngredientRecipe<Inventory> {
 	public static final RecipeSerializer<BrewingRecipe> SERIALIZER = new IngredientRecipe.Serializer<>(BrewingRecipe::new);
 
-	public BrewingRecipe(Identifier identifier, Ingredient base, Ingredient ingredient, ItemStack result, Serializer<BrewingRecipe> serializer) {
-		super(identifier, base, ingredient, result, NbtCrafting.BREWING_RECIPE_TYPE, serializer);
+	public BrewingRecipe(Ingredient base, Optional<Ingredient> ingredient, ItemStack result, Serializer<BrewingRecipe> serializer) {
+		super(base, ingredient, result, NbtCrafting.BREWING_RECIPE_TYPE, serializer);
 	}
 
 	@Override

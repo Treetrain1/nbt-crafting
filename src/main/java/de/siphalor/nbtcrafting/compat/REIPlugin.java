@@ -32,7 +32,7 @@ public class REIPlugin implements REIClientPlugin {
 	@Override
 	public void registerDisplays(DisplayRegistry registry) {
 		registry.registerFiller(BrewingRecipe.class, recipe -> {
-			return new DefaultBrewingDisplay(recipe.getBase(), recipe.getIngredient(), recipe.getOutput(MinecraftClient.getInstance().world.getRegistryManager()));
+			return new DefaultBrewingDisplay(recipe.getBase(), recipe.getIngredient(), recipe.getResult(MinecraftClient.getInstance().world.getRegistryManager()));
 		});
 	}
 }

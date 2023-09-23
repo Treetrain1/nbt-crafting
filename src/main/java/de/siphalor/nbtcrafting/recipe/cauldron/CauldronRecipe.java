@@ -19,7 +19,6 @@ package de.siphalor.nbtcrafting.recipe.cauldron;
 
 import java.util.Map;
 
-import com.google.common.collect.ImmutableMap;
 import net.minecraft.item.ItemStack;
 import net.minecraft.network.PacketByteBuf;
 import net.minecraft.recipe.Ingredient;
@@ -39,37 +38,25 @@ import de.siphalor.nbtcrafting.dollar.Dollar;
 import de.siphalor.nbtcrafting.dollar.DollarParser;
 
 public class CauldronRecipe implements NBTCRecipe<TemporaryCauldronInventory>, ServerRecipe {
-	private final Identifier identifier;
-	public final Ingredient input;
-	public final ItemStack output;
+	public final Ingredient ingredient;
+	public final ItemStack result;
 	public final Identifier fluid;
 	public final int levels;
 	private final Dollar[] outputDollars;
 
-	public CauldronRecipe(Identifier id, Ingredient ingredient, ItemStack output, Identifier fluid, int levels) {
-		this.identifier = id;
-		this.input = ingredient;
-		this.output = output;
+	public CauldronRecipe(Ingredient ingredient, ItemStack result, Identifier fluid, int levels) {
+		this.ingredient = ingredient;
+		this.result = result;
 		this.fluid = fluid;
 		this.levels = levels;
-		this.outputDollars = DollarParser.extractDollars(output.getNbt(), false);
+		this.outputDollars = DollarParser.extractDollars(result.getNbt(), false);
 	}
 
 	public void write(PacketByteBuf packetByteBuf) {
-		packetByteBuf.writeIdentifier(identifier);
-		input.write(packetByteBuf);
-		packetByteBuf.writeItemStack(output);
+		ingredient.write(packetByteBuf);
+		packetByteBuf.writeItemStack(result);
 		packetByteBuf.writeIdentifier(fluid);
 		packetByteBuf.writeShort(levels);
-	}
-
-	public static CauldronRecipe from(PacketByteBuf packetByteBuf) {
-		Identifier identifier = packetByteBuf.readIdentifier();
-		Ingredient input = Ingredient.fromPacket(packetByteBuf);
-		ItemStack output = packetByteBuf.readItemStack();
-		Identifier fluid = packetByteBuf.readIdentifier();
-		int levels = packetByteBuf.readShort();
-		return new CauldronRecipe(identifier, input, output, fluid, levels);
 	}
 
 	@Override
@@ -77,7 +64,7 @@ public class CauldronRecipe implements NBTCRecipe<TemporaryCauldronInventory>, S
 		if (fluid != null && !fluid.equals(inventory.getFluid())) {
 			return false;
 		}
-		if (!input.test(inventory.getStack(0))) {
+		if (!ingredient.test(inventory.getStack(0))) {
 			return false;
 		}
 		if (levels >= 0) {
@@ -93,7 +80,7 @@ public class CauldronRecipe implements NBTCRecipe<TemporaryCauldronInventory>, S
 
 		inventory.getStack(0).decrement(1);
 
-		return RecipeUtil.applyDollars(output.copy(), outputDollars, buildDollarReference(inventory));
+		return RecipeUtil.applyDollars(result.copy(), outputDollars, buildDollarReference(inventory));
 	}
 
 	@Override
@@ -102,18 +89,13 @@ public class CauldronRecipe implements NBTCRecipe<TemporaryCauldronInventory>, S
 	}
 
 	@Override
-	public ItemStack getOutput(DynamicRegistryManager dynamicRegistryManager) {
-		return output;
+	public ItemStack getResult(DynamicRegistryManager dynamicRegistryManager) {
+		return result;
 	}
 
 	@Override
 	public DefaultedList<Ingredient> getIngredients() {
-		return DefaultedList.copyOf(Ingredient.EMPTY, input);
-	}
-
-	@Override
-	public Identifier getId() {
-		return identifier;
+		return DefaultedList.copyOf(Ingredient.EMPTY, ingredient);
 	}
 
 	@Override
@@ -128,6 +110,6 @@ public class CauldronRecipe implements NBTCRecipe<TemporaryCauldronInventory>, S
 
 	@Override
 	public Map<String, Object> buildDollarReference(TemporaryCauldronInventory inv) {
-		return ImmutableMap.of("ingredient", NbtUtil.getTagOrEmpty(inv.getStack(0)));
+		return Map.of("ingredient", NbtUtil.getTagOrEmpty(inv.getStack(0)));
 	}
 }

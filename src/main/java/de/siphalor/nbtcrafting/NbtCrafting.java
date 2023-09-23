@@ -24,9 +24,19 @@ import java.util.concurrent.TimeUnit;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParseException;
+import com.google.gson.JsonSyntaxException;
+import com.mojang.brigadier.StringReader;
+import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.datafixers.util.Pair;
 
+import de.siphalor.nbtcrafting.api.JsonPreprocessor;
+import de.siphalor.nbtcrafting.api.nbt.NbtUtil;
+import de.siphalor.nbtcrafting.mixin.advancement.MixinCriterions;
 import de.siphalor.nbtcrafting.network.ServerNetworkHandlerAccess;
+
+import de.siphalor.nbtcrafting.util.duck.IItemStack;
 
 import io.netty.buffer.Unpooled;
 import it.unimi.dsi.fastutil.ints.*;
@@ -35,13 +45,18 @@ import net.fabricmc.fabric.api.networking.v1.ServerLoginConnectionEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerLoginNetworking;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.minecraft.inventory.Inventory;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+import net.minecraft.item.Items;
 import net.minecraft.nbt.NbtCompound;
+import net.minecraft.nbt.StringNbtReader;
 import net.minecraft.network.PacketByteBuf;
 import net.minecraft.recipe.*;
 import net.minecraft.registry.Registries;
 import net.minecraft.registry.Registry;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.util.Identifier;
+import net.minecraft.util.JsonHelper;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
@@ -49,11 +64,9 @@ import org.jetbrains.annotations.NotNull;
 import de.siphalor.nbtcrafting.advancement.StatChangedCriterion;
 import de.siphalor.nbtcrafting.api.RecipeTypeHelper;
 import de.siphalor.nbtcrafting.ingredient.IIngredient;
-import de.siphalor.nbtcrafting.mixin.advancement.MixinCriterions;
 import de.siphalor.nbtcrafting.recipe.AnvilRecipe;
 import de.siphalor.nbtcrafting.recipe.BrewingRecipe;
 import de.siphalor.nbtcrafting.recipe.IngredientRecipe;
-import de.siphalor.nbtcrafting.recipe.WrappedRecipeSerializer;
 import de.siphalor.nbtcrafting.recipe.cauldron.CauldronRecipe;
 import de.siphalor.nbtcrafting.recipe.cauldron.CauldronRecipeSerializer;
 import de.siphalor.nbtcrafting.util.duck.IServerPlayerEntity;
@@ -78,15 +91,13 @@ public class NbtCrafting implements ModInitializer {
 	public static final RecipeSerializer<BrewingRecipe> BREWING_RECIPE_SERIALIZER = registerRecipeSerializer("brewing", BrewingRecipe.SERIALIZER);
 
 	public static final RecipeType<CauldronRecipe> CAULDRON_RECIPE_TYPE = registerRecipeType("cauldron");
-	public static final CauldronRecipeSerializer CAULDRON_RECIPE_SERIALIZER = registerRecipeSerializer("cauldron", new CauldronRecipeSerializer());
+	public static final CauldronRecipeSerializer CAULDRON_RECIPE_SERIALIZER = registerRecipeSerializer("cauldron", new CauldronRecipeSerializer(CauldronRecipe::new));
 
 	public static final RecipeType<IngredientRecipe<Inventory>> SMITHING_RECIPE_TYPE = registerRecipeType("smithing");
 	@SuppressWarnings("unused")
-	public static final RecipeSerializer<IngredientRecipe<Inventory>> SMITHING_RECIPE_SERIALIZER = registerRecipeSerializer("smithing", new IngredientRecipe.Serializer<>((id, base, ingredient, result, serializer) -> new IngredientRecipe<>(id, base, ingredient, result, SMITHING_RECIPE_TYPE, serializer)));
+	public static final RecipeSerializer<IngredientRecipe<Inventory>> SMITHING_RECIPE_SERIALIZER = registerRecipeSerializer("smithing", new IngredientRecipe.Serializer<>((base, ingredient, result, serializer) -> new IngredientRecipe<>(base, ingredient, result, SMITHING_RECIPE_TYPE, serializer)));
 
-	public static final RecipeSerializer<Recipe<?>> WRAPPED_RECIPE_SERIALIZER = registerRecipeSerializer("wrapped", new WrappedRecipeSerializer());
-
-	public static final StatChangedCriterion STAT_CHANGED_CRITERION = MixinCriterions.registerCriterion(new StatChangedCriterion());
+	public static final StatChangedCriterion STAT_CHANGED_CRITERION = MixinCriterions.register(StatChangedCriterion.ID.toString(), new StatChangedCriterion());
 
 	private static boolean lastReadNbtPresent = false;
 	private static NbtCompound lastReadNbt;
@@ -181,6 +192,69 @@ public class NbtCrafting implements ModInitializer {
 		return false;
 	}
 
+	public static ItemStack outputFromJson(JsonObject json) {
+		if (json.has("potion")) {
+			Identifier identifier = new Identifier(JsonHelper.getString(json, "potion"));
+			if (Registries.POTION.getOrEmpty(identifier).isEmpty())
+				throw new JsonParseException("The given resulting potion does not exist!");
+			JsonObject dataObject;
+			if (!json.has("data")) {
+				dataObject = new JsonObject();
+				json.add("data", dataObject);
+			} else
+				dataObject = JsonHelper.getObject(json, "data");
+			dataObject.addProperty("Potion", identifier.toString());
+			json.addProperty("item", "minecraft:potion");
+		}
+
+		Item item = itemFromJson(json);
+
+		// from mixin
+		clearLastReadNbt();
+		if (json.has("data")) {
+			if (JsonHelper.hasString(json, "data")) {
+				try {
+					NbtCrafting.setLastReadNbt(new StringNbtReader(new StringReader(json.get("data").getAsString())).parseCompound());
+				} catch (CommandSyntaxException e) {
+					e.printStackTrace();
+				}
+			} else {
+				NbtCrafting.setLastReadNbt((NbtCompound) NbtUtil.asTag(JsonPreprocessor.process(JsonHelper.getObject(json, "data"))));
+			}
+			json.remove("data");
+		}
+
+		// original
+		if (json.has("data")) {
+			throw new JsonParseException("Disallowed data tag found");
+		} else {
+			int count = JsonHelper.getInt(json, "count", 1);
+			if (count < 1) {
+				throw new JsonSyntaxException("Invalid output count: " + count);
+			} else {
+				ItemStack stack = new ItemStack(item, count);
+				// from mixin
+				if (NbtCrafting.hasLastReadNbt()) {
+					NbtCompound lastReadNbt = NbtCrafting.useLastReadNbt();
+
+					//noinspection ConstantConditions
+					((IItemStack) (Object) stack).nbtCrafting$setRawTag(lastReadNbt);
+				}
+				return stack;
+			}
+		}
+	}
+
+	public static Item itemFromJson(JsonObject jsonObject) {
+		String string = JsonHelper.getString(jsonObject, "item");
+		Item item = Registries.ITEM.getOrEmpty(Identifier.tryParse(string)).orElseThrow(() -> new JsonSyntaxException("Unknown item '" + string + "'"));
+		if (item == Items.AIR) {
+			throw new JsonSyntaxException("Empty ingredient not allowed here");
+		} else {
+			return item;
+		}
+	}
+
 	public static <T extends Recipe<?>> RecipeType<T> registerRecipeType(String name) {
 		Identifier recipeTypeId = new Identifier(MOD_ID, name);
 		RecipeTypeHelper.addToSyncBlacklist(recipeTypeId);
@@ -200,8 +274,8 @@ public class NbtCrafting implements ModInitializer {
 
 	public static List<PacketByteBuf> createAdvancedRecipeSyncPackets(RecipeManager recipeManager) {
 		advancedIngredientSerializationEnabled.set(true);
-		List<Recipe<?>> recipes = recipeManager.values().stream().filter(recipe -> {
-			for (Ingredient ingredient : recipe.getIngredients()) {
+		List<RecipeEntry<?>> recipes = recipeManager.values().stream().filter(recipe -> {
+			for (Ingredient ingredient : recipe.value().getIngredients()) {
 				if (((IIngredient) (Object) ingredient).nbtCrafting$isAdvanced()) {
 					return true;
 				}
@@ -213,13 +287,13 @@ public class NbtCrafting implements ModInitializer {
 		PacketByteBuf buf = new PacketByteBuf(Unpooled.buffer());
 		buf.writeVarInt(0);
 
-		for (Recipe<?> recipe : recipes) {
+		for (RecipeEntry<?> recipe : recipes) {
 			@SuppressWarnings("rawtypes")
-			RecipeSerializer serializer = recipe.getSerializer();
+			RecipeSerializer serializer = recipe.value().getSerializer();
 			buf.writeIdentifier(Registries.RECIPE_SERIALIZER.getId(serializer));
-			buf.writeIdentifier(recipe.getId());
+			buf.writeIdentifier(recipe.id());
 			//noinspection unchecked
-			serializer.write(buf, recipe);
+			serializer.write(buf, recipe.value());
 
 			if (buf.readableBytes() > 1_900_000) { // max packet size is 2^21=2_097_152 bytes
 				packets.add(buf);

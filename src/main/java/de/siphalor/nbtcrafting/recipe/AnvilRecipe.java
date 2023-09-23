@@ -27,23 +27,19 @@ import net.minecraft.util.JsonHelper;
 
 import de.siphalor.nbtcrafting.NbtCrafting;
 
+import java.util.Optional;
+
 public class AnvilRecipe extends IngredientRecipe<Inventory> {
 	protected int levels = 0;
 
-	public static final IngredientRecipe.Serializer<AnvilRecipe> SERIALIZER = new IngredientRecipe.Serializer<>(AnvilRecipe::new);
+	public static final IngredientRecipe.Serializer<AnvilRecipe> SERIALIZER = new IngredientRecipe.Serializer<>((AnvilRecipe::new));
 
-	public AnvilRecipe(Identifier identifier, Ingredient base, Ingredient ingredient, ItemStack result, Serializer<AnvilRecipe> serializer) {
-		super(identifier, base, ingredient, result, NbtCrafting.ANVIL_RECIPE_TYPE, SERIALIZER);
+	public AnvilRecipe(Ingredient base, Optional<Ingredient> ingredient, ItemStack result, Serializer<AnvilRecipe> serializer) {
+		super(base, ingredient, result, NbtCrafting.ANVIL_RECIPE_TYPE, SERIALIZER);
 	}
 
 	public int getLevels() {
 		return levels;
-	}
-
-	@Override
-	public void readCustomData(JsonObject json) {
-		super.readCustomData(json);
-		levels = JsonHelper.getInt(json, "levels", 0);
 	}
 
 	@Override

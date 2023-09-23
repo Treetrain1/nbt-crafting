@@ -25,7 +25,7 @@ import org.spongepowered.asm.mixin.gen.Invoker;
 @Mixin(Criteria.class)
 public interface MixinCriterions {
 	@Invoker("register")
-	static <T extends Criterion<?>> T registerCriterion(T criterion) {
+	static <T extends Criterion<?>> T register(String id, T criterion) {
 		return null;
 	}
 }
